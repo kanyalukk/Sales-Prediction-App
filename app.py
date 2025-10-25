@@ -1,4 +1,10 @@
-# app.py
+# app.py  — Streamlit Regression App
+# วิธีรัน:
+#   pip install streamlit pandas scikit-learn numpy
+#   streamlit run app.py
+#
+# ต้องมีไฟล์ advertising.csv อยู่โฟลเดอร์เดียวกับไฟล์นี้ และมีคอลัมน์เป้าหมายชื่อ "sales"
+
 import os
 import numpy as np
 import pandas as pd
@@ -8,57 +14,57 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-st.set_page_config(page_title="Advertising Sales Regression", layout="wide")
-st.title("Sales Prediction (Linear Regression)")
-st.caption("อ่านไฟล์ advertising.csv จาก repo และประเมินโมเดลแบบ Linear Regression")
+st.set_page_config(page_title="Advertising Regression", layout="wide")
+st.title("Linear Regression on advertising.csv")
+st.caption("Step 1–5: read CSV → split X/y → split 70:30 → train Linear Regression → evaluate on test set")
 
-# ===== Step 1: อ่านข้อมูล =====
+# ---------- Step 1: Read advertising.csv ----------
 @st.cache_data
-def load_data():
-    base_dir = os.path.dirname(__file__)
-    csv_path = os.path.join(base_dir, "advertising.csv")
-    # ลองอ่านด้วย utf-8-sig เพื่อกันปัญหา BOM/ภาษาไทย
+def load_csv_from_local():
+    csv_path = os.path.join(os.path.dirname(__file__), "advertising.csv")
     return pd.read_csv(csv_path, encoding="utf-8-sig")
 
 try:
-    df = load_data()
+    df = load_csv_from_local()
 except FileNotFoundError:
-    st.error("ไม่พบไฟล์ advertising.csv ในโฟลเดอร์เดียวกับ app.py")
+    st.error("ไม่พบไฟล์ 'advertising.csv' ข้าง ๆ app.py — โปรดวางไฟล์ไว้โฟลเดอร์เดียวกันแล้วกด Rerun")
     st.stop()
 
-st.subheader("ตัวอย่างข้อมูล (ส่วนต้น)")
+st.subheader("ตัวอย่างข้อมูล (5 แถวแรก)")
 st.dataframe(df.head(), use_container_width=True)
 
-# ===== Step 2: แยก X (features) และ y (target: 'sales') =====
+# ---------- Step 2: Split features (X) and target (y='sales') ----------
 if "sales" not in df.columns:
-    st.error("ไม่พบคอลัมน์ 'sales' ในไฟล์ CSV กรุณาตรวจสอบชื่อคอลัมน์ให้ตรง")
+    st.error("ไม่พบคอลัมน์ 'sales' ในไฟล์ CSV (ต้องสะกดตรงตัว)")
     st.stop()
 
 df = df.dropna(subset=["sales"])
 X = df.drop(columns=["sales"])
 y = df["sales"]
 
-# เพื่อความปลอดภัย ถ้า X มีคอลัมน์ที่ไม่ใช่ตัวเลข ให้คัดเฉพาะตัวเลขก่อน
-# (เบื้องต้นสำหรับมือใหม่; ภายหลังค่อยเพิ่มการเข้ารหัสหมวดหมู่)
-X_num = X.select_dtypes(include=[np.number])
-if X_num.shape[1] == 0:
-    st.error("คอลัมน์ตัวทำนาย (X) ไม่มีตัวเลขเลย ต้องแปลงหมวดหมู่เป็นตัวเลขก่อน")
+# ทำให้ใช้งานได้กับทุกกรณี: เข้ารหัสหมวดหมู่ + เก็บตัวเลขเดิม
+X = pd.get_dummies(X, drop_first=True)
+# เติมค่าว่างเชิงตัวเลข (กันพัง)
+X = X.fillna(X.median(numeric_only=True))
+
+if X.shape[1] == 0:
+    st.error("ไม่พบฟีเจอร์สำหรับฝึกโมเดล (หลังแปลงเป็นตัวเลขแล้วคอลัมน์หายหมด)")
     st.stop()
 
-# ===== Step 3: แบ่ง Train/Test 70:30 =====
+# ---------- Step 3: Train/Test split = 70:30 ----------
 X_train, X_test, y_train, y_test = train_test_split(
-    X_num, y, test_size=0.30, random_state=42
+    X, y, test_size=0.30, random_state=42
 )
 
-# ===== Step 4: สร้างและฝึกโมเดล Linear Regression =====
+# ---------- Step 4: Build & Train Linear Regression ----------
 model = LinearRegression()
 model.fit(X_train, y_train)
 
-# ===== Step 5: ประเมินผลบนชุดทดสอบ =====
+# ---------- Step 5: Evaluate on the test set ----------
 y_pred = model.predict(X_test)
-mae = mean_absolute_error(y_test, y_pred)
-rmse = mean_squared_error(y_test, y_pred) ** 0.5
-r2 = r2_score(y_test, y_pred)
+mae  = mean_absolute_error(y_test, y_pred)
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+r2   = r2_score(y_test, y_pred)
 
 st.subheader("ผลการประเมิน (Test Set)")
 c1, c2, c3 = st.columns(3)
@@ -66,9 +72,9 @@ c1.metric("MAE", f"{mae:.4f}")
 c2.metric("RMSE", f"{rmse:.4f}")
 c3.metric("R²", f"{r2:.4f}")
 
-# แสดงค่าสัมประสิทธิ์ (น้ำหนักของแต่ละตัวแปร)
+# แสดงค่าสัมประสิทธิ์ของโมเดล (เรียงตามขนาดสัมบูรณ์)
 coef_df = (
-    pd.DataFrame({"feature": X_num.columns, "coef": model.coef_})
+    pd.DataFrame({"feature": X.columns, "coef": model.coef_})
     .assign(abs_coef=lambda d: d["coef"].abs())
     .sort_values("abs_coef", ascending=False)
     .drop(columns=["abs_coef"])
@@ -76,9 +82,11 @@ coef_df = (
 st.subheader("ค่าสัมประสิทธิ์ของโมเดล (Linear Coefficients)")
 st.dataframe(coef_df, use_container_width=True)
 
-# กราฟเปรียบเทียบค่าจริง vs ค่าทำนาย (ดูแนวโน้ม)
+# กราฟเปรียบเทียบค่าจริง vs ค่าพยากรณ์
 st.subheader("Actual vs Predicted (Test Set)")
 plot_df = pd.DataFrame(
     {"Actual": y_test.reset_index(drop=True), "Predicted": pd.Series(y_pred)}
 )
-st.line_chart(plot_df)
+st.line_chart(plot_df, use_container_width=True)
+ing=False).to_string(index=False))
+print(f"\nIntercept: {model.intercept_:.4f}")
