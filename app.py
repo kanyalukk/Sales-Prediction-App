@@ -1,9 +1,7 @@
-# app.py  — Streamlit Regression App
-# วิธีรัน:
+# app.py  — Streamlit version of the regression script
+# วิธีรันครั้งแรก:
 #   pip install streamlit pandas scikit-learn numpy
 #   streamlit run app.py
-#
-# ต้องมีไฟล์ advertising.csv อยู่โฟลเดอร์เดียวกับไฟล์นี้ และมีคอลัมน์เป้าหมายชื่อ "sales"
 
 import os
 import numpy as np
@@ -24,10 +22,15 @@ def load_csv_from_local():
     csv_path = os.path.join(os.path.dirname(__file__), "advertising.csv")
     return pd.read_csv(csv_path, encoding="utf-8-sig")
 
+uploaded = st.file_uploader("(ทางเลือก) อัปโหลด advertising.csv ที่นี่ หากต้องการใช้ไฟล์อื่น", type=["csv"])
+
 try:
-    df = load_csv_from_local()
+    if uploaded is not None:
+        df = pd.read_csv(uploaded, encoding="utf-8-sig")
+    else:
+        df = load_csv_from_local()
 except FileNotFoundError:
-    st.error("ไม่พบไฟล์ 'advertising.csv' ข้าง ๆ app.py — โปรดวางไฟล์ไว้โฟลเดอร์เดียวกันแล้วกด Rerun")
+    st.error("ไม่พบไฟล์ 'advertising.csv' ข้าง ๆ app.py และยังไม่ได้อัปโหลดไฟล์ โปรดวางไฟล์ไว้โฟลเดอร์เดียวกับ app.py หรืออัปโหลดด้านบน")
     st.stop()
 
 st.subheader("ตัวอย่างข้อมูล (5 แถวแรก)")
@@ -42,7 +45,7 @@ df = df.dropna(subset=["sales"])
 X = df.drop(columns=["sales"])
 y = df["sales"]
 
-# ทำให้ใช้งานได้กับทุกกรณี: เข้ารหัสหมวดหมู่ + เก็บตัวเลขเดิม
+# แปลงฟีเจอร์เป็นตัวเลขแบบง่าย: one-hot ให้คอลัมน์ที่เป็นข้อความ + เก็บตัวเลขเดิม
 X = pd.get_dummies(X, drop_first=True)
 # เติมค่าว่างเชิงตัวเลข (กันพัง)
 X = X.fillna(X.median(numeric_only=True))
@@ -88,5 +91,3 @@ plot_df = pd.DataFrame(
     {"Actual": y_test.reset_index(drop=True), "Predicted": pd.Series(y_pred)}
 )
 st.line_chart(plot_df, use_container_width=True)
-ing=False).to_string(index=False))
-print(f"\nIntercept: {model.intercept_:.4f}")
